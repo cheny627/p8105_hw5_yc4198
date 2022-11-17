@@ -12,14 +12,78 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r,warning=FALSE,message=FALSE}
 library(tidyverse)
 library(broom)
+library(purrr)
 ```
 
 ## Problem 2
+
+This data records homicides in 50 large U.S. cities which contains 52179 observations and 12 variables. The variables including case id, reported date of murder, victim’s last name, victim’s first name, victim’s race, victim’s age, victim’s sex, city, state, latitidue, longitude, and disposition of the case.
+
+```{r,warning=FALSE,message=FALSE}
+homicide <- read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv")
+
+homicide <- homicide%>%
+  mutate(city_state=str_c(city, ",",state))%>%
+  relocate(city_state)
+  
+
+homicide %>%
+  group_by(city) %>%
+  summarise(
+    unsolved = sum(disposition=="Closed without arrest"| disposition =="Open/No arrest"),
+    n = n()) %>%
+  knitr::kable(col.names = c("City", "Unsolved Homicides", "Total Homicides"))
+
+
+```
+
 ```{r}
+prop.test(x=1825, n=2827) %>% broom::tidy()
+```
 
-a = rnorm(10, mean = 0, sd = 1)
+```{r}
+prop_test <- function(df) {
+  
+  city_sum <- df %>%
+  summarise(
+    unsolved = sum(disposition=="Closed without arrest"| disposition =="Open/No arrest"),
+    n = n()
+  )
 
-tidy(t.test(a,mu=0))[3]
+  test <- prop.test(
+    x = city_sum %>% pull(unsolved),
+    n = city_sum %>% pull(n))
+  return(test)
+}
+
+```
+
+```{r,warning=FALSE}
+results = 
+  homicide %>%
+  nest(data = uid:disposition) %>%
+  mutate(
+    tests = map(data, prop_test),
+    tidy_tests = map(tests, broom::tidy)
+    ) %>% 
+    select(city_state, tidy_tests) %>% 
+    unnest(tidy_tests) %>% 
+    select(city_state, estimate, starts_with("conf"))
+
+head(results) %>% 
+  knitr::kable()
+
+```
+```{r}
+results%>% 
+  mutate(city_state = fct_reorder(city_state, estimate)) %>% 
+  ggplot(aes(x = city_state, y = estimate)) +
+  geom_point(color="red",size=1) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high)) +  
+  theme(axis.text.x = element_text(size = 8, angle = 90, vjust = 0.5, hjust = 1))+
+  xlab("City")+
+  ylab("Proportion")+
+  ggtitle("Proportion of unsolved homicides and the CIs for each city")
 ```
 
 
