@@ -133,12 +133,11 @@ sim_results_df <- sim_results_df %>%
 ```
 
 ```{r}
-for (i in 0:6) {
-  proportions[i+1] = nrow( filter(sim_results_df, true_mu==i&p.value<0.05))/5000
-}
 
-power <- df <- data.frame (mu  = str_c("u = ", c(0:6)),
-                  proportion=proportions
+proportions = sim_results_df%>% filter(p.value<0.05)%>%group_by(true_mu)%>%summarise(n=n())
+
+power <- data.frame (mu  = str_c("u = ", c(0:6)),
+                  proportion=proportions$n/5000
                   )
                   
 ```
@@ -187,5 +186,6 @@ ggplot(total,aes(x=true_mu, y=emp_mean)) +
     geom_point(color = "red")+
   ggtitle(expression(paste("Plot of Estimated and True Values of ", mu)))
 ```
+
 The sample average of μ̂ across tests for which the null is rejected is not approximately equal to the true value of μ when μ is small. This is because when the value of μ is close to the hypothesized value of zero, there is only a small proportion of tests for which the null is rejected. Among those tests,  μ̂ is not likely to be close to the true value.
 
